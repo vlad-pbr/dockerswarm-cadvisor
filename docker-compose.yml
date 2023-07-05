@@ -77,11 +77,21 @@ services:
     ports:
     - target: 3000
       published: 3000
-    secrets: []
+    secrets:
+    - source: cert.pem
+      target: /certs/cert.pem
+    - source: key.pem
+      target: /certs/key.pem
 
 configs:
   prometheus.yml:
-    external: true # TODO file
+    file: ./prometheus.yml
 
 networks:
   monitoring:
+
+secrets:
+  cert.pem:
+    external: true
+  key.pem:
+    external: true
