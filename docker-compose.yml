@@ -1,0 +1,87 @@
+version: '3.7'
+
+services:
+
+  cadvisor:
+    image: $CADVISOR_IMAGE
+    deploy:
+      mode: global
+    labels:
+      prometheus_job: cadvisor
+    networks:
+      monitoring:
+    command:
+    - -docker_only
+    volumes:
+    - type: bind
+      source: /var/run/docker.sock
+      target: /var/run/docker.sock
+      read_only: true
+    - type: bind
+      source: /
+      target: /rootfs
+      read_only: true
+    - type: bind
+      source: /var/run
+      target: /var/run
+    - type: bind
+      source: /sys
+      target: /sys
+      read_only: true
+    - type: bind
+      source: /var/lib/docker
+      target: /var/lib/docker
+      read_only: true
+
+  prometheus:
+    image: $PROMETHEUS_IMAGE
+    user: root
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [ node.role == manager ]
+    networks:
+      monitoring:
+        aliases:
+        - prometheus
+    configs:
+    - source: prometheus.yml
+      target: /etc/prometheus/prometheus.yml
+    volumes:
+    - type: bind
+      source: /var/run/docker.sock
+      target: /var/run/docker.sock
+      read_only: true
+
+  grafana:
+    image: $GRAFANA_IMAGE
+    deploy:
+      replicas: 1
+    entrypoint:
+    - "/bin/bash"
+    - "-c"
+    command: |
+      'bash -s <<EOF
+      cat > ~/grafana.ini <<EON
+
+      [server]
+      protocol = https
+      cert_key = /certs/key.pem
+      cert_file = /certs/cert.pem
+
+      EON
+      /run.sh -config ~/grafana.ini
+      EOF'
+    networks:
+      monitoring:
+    ports:
+    - target: 3000
+      published: 3000
+    secrets: []
+
+configs:
+  prometheus.yml:
+    external: true # TODO file
+
+networks:
+  monitoring:

@@ -1,15 +1,28 @@
 scrape_configs:
 
-  # Create a job for cadvisor instances.
-  - job_name: 'cadvisor'
-    dockerswarm_sd_configs:
-      - host: unix:///var/run/docker.sock
-        role: nodes
-    relabel_configs:
-      # Fetch metrics on port 8080.
-      - source_labels: [__meta_dockerswarm_node_address]
-        target_label: __address__
-        replacement: $1:8080
-      # Set hostname as instance label.
-      - source_labels: [__met_dockerswarm_node_hostname]
-        target_label: instance
+
+- job_name: 'cadvisor'
+
+  # discover cadvisor instances using node's docker socket
+  dockerswarm_sd_configs:
+  - host: unix:///var/run/docker.sock
+    role: tasks
+
+  relabel_configs:
+
+
+  # only match running tasks
+  - source_labels: [__meta_dockerswarm_task_desired_state]
+    regex: running
+    action: keep
+
+  # only match containers with 'prometheus_job=cadvisor' label
+  - source_labels: [__meta_dockerswarm_container_label_prometheus_job]
+    regex: cadvisor
+    action: keep
+
+  # replace port with cadvisor port
+  - source_labels: [__address__]
+    target_label: __address__
+    regex: (.*):.*
+    replacement: ${1}:8000
